@@ -62,16 +62,28 @@ local function loadAddon(options)
     local widget = {}
     widget.__index = widget
     local ignored = {
-        "SetSize", "SetWidth", "SetHeight", "SetPoint", "SetAllPoints", "SetFrameStrata",
-        "SetClampedToScreen", "EnableMouse", "SetMovable", "RegisterForDrag", "StartMoving",
+        "SetSize", "SetWidth", "SetHeight", "SetAllPoints", "SetFrameStrata",
+        "SetClampedToScreen", "EnableMouse", "SetMovable", "StartMoving",
         "StopMovingOrSizing", "SetBackdrop", "SetBackdropColor", "SetBackdropBorderColor",
-        "SetColorTexture", "SetVertexColor", "SetTextColor", "SetMultiLine", "SetAutoFocus",
+        "SetColorTexture", "SetTextColor", "SetMultiLine", "SetAutoFocus",
         "SetAltArrowKeyMode", "SetTextInsets", "UpdateScrollChildRect", "SetCursorPosition",
-        "RegisterEvent", "UnregisterEvent",
     }
     for _, name in ipairs(ignored) do widget[name] = function() end end
+    function widget:RegisterEvent(event) self.events[event] = true end
+    function widget:UnregisterEvent(event) self.events[event] = nil end
+    function widget:RegisterForClicks(button) self.click = button end
+    function widget:RegisterForDrag(button) self.dragButton = button end
+    function widget:SetTexture(path) self.texture = path end
+    function widget:SetPoint(...) self.point = {...} end
+    function widget:SetVertexColor(...) self.color = {...} end
+    function widget:IsForbidden() return options.forbiddenMinimap end
     function widget:SetScript(event, callback) self[event] = callback end
-    function widget:SetFont(path) return path == "Fonts\\FRIZQT__.TTF" end
+    function widget:SetFont(path, _, flags)
+        if self.kind == "EditBox" then
+            assert(type(flags) == "string", "EditBox:SetFont requires flags")
+        end
+        return path == "Fonts\\FRIZQT__.TTF"
+    end
     function widget:GetFont() return "Fonts\\FRIZQT__.TTF" end
     function widget:GetName() return self.name end
     function widget:SetText(value)
@@ -90,8 +102,16 @@ local function loadAddon(options)
     function widget:GetVerticalScroll() return self.verticalScroll or 0 end
     function widget:SetVerticalScroll(offset) self.verticalScroll = offset end
     function widget:SetScrollChild(child) self.scrollChild = child end
-    function widget:CreateTexture() return setmetatable({}, widget) end
-    function widget:CreateFontString() return setmetatable({}, widget) end
+    function widget:CreateTexture(_, layer)
+        local texture = setmetatable({}, widget)
+        self[layer] = texture
+        return texture
+    end
+    function widget:CreateFontString()
+        local label = setmetatable({kind = "FontString", parent = self}, widget)
+        frames[#frames + 1] = label
+        return label
+    end
     function widget:IsShown() return not self.hidden end
     function widget:Show()
         self.hidden = false
@@ -108,13 +128,27 @@ local function loadAddon(options)
     function widget:HighlightText(start, finish)
         self.selection = self.text:sub((start or 0) + 1, finish)
     end
-    env.CreateFrame = function(kind, name, _, template)
-        local frame = setmetatable({kind = kind, name = name, template = template}, widget)
+    env.CreateFrame = function(kind, name, parent, template)
+        local frame = setmetatable({kind = kind, name = name, parent = parent, template = template, events = {}}, widget)
+        if name then env[name] = frame end
         frames[#frames + 1] = frame
         return frame
     end
     env.GameFontNormal = setmetatable({}, widget)
     env.UIParent = setmetatable({}, widget)
+    if not options.noMinimap then
+        env.Minimap = setmetatable({width = 140, height = 140}, widget)
+        function env.Minimap:GetSize() return self.width, self.height end
+        function env.Minimap:GetCenter() return 400, 300 end
+        function env.Minimap:GetEffectiveScale() return .8 end
+        function env.Minimap:GetMaskTexture() return options.minimapMask end
+        function env.Minimap:HookScript(event, callback) self[event] = callback end
+    end
+    env.GetCursorPosition = function() return 320, 296 end
+    env.GameTooltip = setmetatable({hidden = true}, widget)
+    function env.GameTooltip:SetOwner(owner) self.owner = owner end
+    function env.GameTooltip:IsOwned(owner) return self.owner == owner end
+    function env.GameTooltip:AddLine(line) self.line = line end
     env.UISpecialFrames = {}
     env.SlashCmdList = {}
     env.tinsert = table.insert
@@ -122,8 +156,15 @@ local function loadAddon(options)
     for _, file in ipairs({"Core.lua", "UI.lua"}) do
         setfenv(assert(loadfile(file)), env)("BuddyReport", ns)
     end
-    frames[1]:OnEvent("ADDON_LOADED", "OtherAddon")
-    frames[1]:OnEvent("ADDON_LOADED", "BuddyReport")
+    local function dispatch(event, ...)
+        for _, frame in ipairs(frames) do
+            if frame.events and frame.events[event] then frame:OnEvent(event, ...) end
+        end
+    end
+    dispatch("ADDON_LOADED", "OtherAddon")
+    dispatch("ADDON_LOADED", "BuddyReport")
+    assert(not env.BuddyReportMinimapButton)
+    dispatch("PLAYER_LOGIN")
     local function fire(message)
         local function raise() error(message, 0) end
         return xpcall(raise, handler)
@@ -138,7 +179,17 @@ end
 
 local ns, env, fire, _, forwarded, frames, secret, replaceHandler = loadAddon({})
 assert(ns.GetCaptureMode() == "client" and ns.GetErrorCount() == 0)
-assert(#frames == 1, "The window should be created on demand")
+local minimapButton = env.BuddyReportMinimapButton
+assert(minimapButton.parent == env.Minimap and minimapButton.click == "LeftButtonUp")
+assert(minimapButton.dragButton == "LeftButton" and not minimapButton.OnUpdate)
+assert(minimapButton.ARTWORK.texture == "Interface\\AddOns\\BuddyReport\\Media\\Icon.tga")
+assert(minimapButton.ARTWORK.color[2] == 1)
+assert(not env.BuddyReportWindow, "The window should be created on demand")
+minimapButton:OnEnter()
+assert(env.GameTooltip:IsShown() and env.GameTooltip.text == "BuddyReport (/br)")
+assert(env.GameTooltip.line == "Drag to move")
+minimapButton:OnLeave()
+assert(not env.GameTooltip:IsShown())
 assert(env.SLASH_BUDDYREPORT1 == "/br")
 local cleanReport = ns.CreateReport()
 contains(cleanReport, "World of Warcraft Retail 12.1.5 (build 70783, interface 120105)")
@@ -149,8 +200,22 @@ contains(cleanReport, "No Lua errors recorded.")
 contains(cleanReport, "AEnabled | 2.5 | enabled\nBuddyReport | 1.0.0 | enabled\nZDisabled | unknown | disabled")
 assert(not cleanReport:find("ABCDEF", 1, true))
 
+minimapButton:OnDragStart()
+assert(minimapButton.OnUpdate and math.abs(env.BuddyReportDB.minimapAngle - math.pi / 2) < .0001)
+assert(minimapButton.point[5] == 70)
+minimapButton:OnDragStop()
+assert(not minimapButton.OnUpdate and not env.BuddyReportWindow)
+env.Minimap.height = 180
+env.Minimap:OnSizeChanged()
+assert(minimapButton.point[5] == 90)
+minimapButton:OnDragStart()
+minimapButton:Hide()
+assert(not minimapButton.OnUpdate)
+minimapButton:Show()
+
 local ok, result = fire("sample Lua error")
 assert(not ok and result == "forwarded")
+assert(minimapButton.ARTWORK.color[2] < 1 and minimapButton.OVERLAY.color[2] < .5)
 fire("sample Lua error")
 assert(ns.GetErrorCount() == 1 and #forwarded == 2)
 env.geterrorhandler()(secret)
@@ -160,17 +225,27 @@ local report = ns.CreateReport()
 contains(report, "Occurrences: 2")
 contains(report, "Stack:\n[Fixture/Example.lua]:12: in function 'Run'")
 
-local reloaded = loadAddon({saved = env.BuddyReportDB})
+local reloaded, reloadedEnv = loadAddon({saved = env.BuddyReportDB})
 assert(reloaded.GetErrorCount() == 1)
 contains(reloaded.CreateReport(), "Occurrences: 2")
+assert(reloadedEnv.BuddyReportMinimapButton.point[5] > 65)
+assert(reloadedEnv.BuddyReportMinimapButton.ARTWORK.color[2] < 1)
 
+minimapButton:OnClick()
+local reportWindow = env.BuddyReportWindow
+assert(reportWindow:IsShown())
 env.SlashCmdList.BUDDYREPORT()
+assert(not reportWindow:IsShown())
+minimapButton:OnClick()
+assert(env.BuddyReportWindow == reportWindow and reportWindow:IsShown())
 local editBox, scrollFrame, buttons
 buttons = {}
 for _, frame in ipairs(frames) do
     if frame.kind == "EditBox" then editBox = frame end
     if frame.kind == "ScrollFrame" then scrollFrame = frame end
-    if frame.kind == "Button" and not frame.template then buttons[#buttons + 1] = frame end
+    if frame.kind == "Button" and not frame.template and frame ~= minimapButton then
+        buttons[#buttons + 1] = frame
+    end
     assert(not frame.OnUpdate)
 end
 assert(scrollFrame.scrollChild == editBox)
@@ -191,6 +266,7 @@ editBox:OnCursorChanged(0, -300, 0, 12)
 assert(scrollFrame.verticalScroll == 92)
 buttons[2]:OnClick()
 assert(ns.GetErrorCount() == 0 and #env.BuddyReportDB.errors == 0 and editBox.text == "" and not editBox.focus)
+assert(minimapButton.ARTWORK.color[2] == 1 and minimapButton.OVERLAY.color[2] > .5)
 assert(loadAddon({saved = env.BuddyReportDB}).GetErrorCount() == 0)
 replaceHandler()
 assert(ns.GetCaptureMode() == "unavailable")
@@ -212,7 +288,7 @@ local missing = loadAddon({missing = true, secretGUID = true, saved = {errors = 
 assert(missing.GetCaptureMode() == "unavailable" and missing.GetErrorCount() == 0)
 contains(missing.CreateReport(), "AEnabled | 2.5 | enabled for some characters")
 
-local forever, foreverEnv, foreverFire = loadAddon({forever = true, popups = true, noErrorHeight = true})
+local forever, foreverEnv, foreverFire, _, _, foreverFrames = loadAddon({forever = true, popups = true, noErrorHeight = true})
 foreverFire("Forever test")
 foreverEnv.debugstack = function() error("unavailable stack") end
 foreverFire("Stack API failure")
@@ -220,6 +296,31 @@ contains(forever.CreateReport(), "World of Warcraft Forever 1.60.1 (build 70938,
 contains(forever.CreateReport(), "Client locale: deDE")
 contains(forever.CreateReport(), "Message: Stack API failure\nStack:\n(unavailable)")
 contains(forever.CreateReport(), "Blizzard Lua error popups: on")
+assert(foreverEnv.BuddyReportMinimapButton.parent == foreverEnv.Minimap)
+foreverEnv.BuddyReportMinimapButton:OnClick()
+assert(foreverEnv.BuddyReportWindow:IsShown())
+foreverEnv.BuddyReportMinimapButton:OnClick()
+assert(not foreverEnv.BuddyReportWindow:IsShown())
+foreverEnv.SlashCmdList.BUDDYREPORT()
+assert(foreverEnv.BuddyReportWindow:IsShown())
+assert(foreverEnv.UISpecialFrames[1] == "BuddyReportWindow")
+local labels = {}
+for _, frame in ipairs(foreverFrames) do
+    if frame.kind == "FontString" then labels[frame.text] = frame end
+end
+assert(labels["Unterschiedliche Fehler: 2"])
+assert(labels["Bericht erstellen"].parent.OnClick and labels["Fehler löschen"].parent.OnClick)
+
+for _, options in ipairs({{noMinimap = true}, {forbiddenMinimap = true}}) do
+    local _, noButton = loadAddon(options)
+    assert(not noButton.BuddyReportMinimapButton)
+    noButton.SlashCmdList.BUDDYREPORT()
+    assert(noButton.BuddyReportWindow:IsShown())
+end
+
+local _, square = loadAddon({saved = {minimapAngle = math.pi / 4}, minimapMask = "Interface\\Buttons\\WHITE8X8"})
+assert(math.abs(square.BuddyReportMinimapButton.point[4] - 70) < .0001)
+assert(math.abs(square.BuddyReportMinimapButton.point[5] - 70) < .0001)
 
 local bug, bugEnv, _, bugCallbacks = loadAddon({forever = true, blocked = true})
 assert(bug.GetCaptureMode() == "unavailable")
@@ -235,6 +336,7 @@ notification("BugGrabber example Lua error")
 notification("LUA_WARNING: synthetic warning")
 notification("[ADDON_ACTION_BLOCKED] synthetic event")
 assert(bug.GetErrorCount() == 1)
+assert(bugEnv.BuddyReportMinimapButton.ARTWORK.color[2] < 1)
 contains(bug.CreateReport(), "Occurrences: 2")
 contains(bug.CreateReport(), "Stack:\nBugGrabber stack")
 bugEnv.BugGrabber.IsPaused = function() return true end

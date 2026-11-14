@@ -18,15 +18,30 @@ client restrictions.
 
 ## Client smoke test
 
+After technical checks for a gameplay change, end the test report with the
+Fedora install command for each affected client. Run the applicable command
+in the local Fedora terminal.
+
+| Client | Fedora command |
+| --- | --- |
+| Retail | `cd /mnt/UserData/Dokumente/ChatGPT/wow_addon && ./tools/spieltest.sh BuddyReport-Retail` |
+| Forever | `cd /mnt/UserData/Dokumente/ChatGPT/wow_addon && ./tools/spieltest.sh BuddyReport-Forever` |
+
+WoW can stay open. Once installation succeeds, enter `/reload` in WoW chat.
+
 Test separately in Retail and Forever with just BuddyReport enabled. In
 Forever, log in before testing `/br`.
 
 1. Check the name, icon, enabled state and version in the add-on list.
+   In game, check the minimap icon and tooltip. Click the icon to open and
+   close the report window, then check that `/br` opens the same window.
+   Drag the icon along the minimap edge and verify its position after a reload.
 2. Set `/console scriptErrors 0`. Open `/br`, create an empty report and
    verify that the game edition, build, language and addon inventory are present.
 3. Run the same chat command twice on separate submissions:
    `/run error("BuddyReport smoke test")`
    Generate a new report and check the message, originating stack, and count of two.
+   Verify that the minimap icon turns red and stays red until the errors are cleared.
 4. Copy the entire report via Ctrl+A and Ctrl+C, paste it in a local editor and
    check that the last stack line is present. Repeat with a long report and verify
    wheel scrolling and selection.
@@ -43,8 +58,7 @@ and runtime behavior are covered by the smoke test above.
 
 Run `./tools/release.sh` to test and build `dist/BuddyReport-1.0.0.zip`.
 The script uses the Buddy project ZIP layout and deterministic package format.
-Extract the ZIP into each client's `Interface/AddOns` directory while WoW is
-closed to install it for a smoke test.
+Use the Fedora commands above to install a checked build for the smoke test.
 
 Push the checked commit to `main` in the BuddyReport repository. Run
 `gh workflow run release.yml --ref main --repo norushflow/BuddyReport`.

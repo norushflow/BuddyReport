@@ -1,6 +1,6 @@
 # BuddyReport
 
-Open `/br` to turn recorded Lua errors into one copyable diagnostic report. It includes the client version, build and language, the installed addons and their enablement, and saved errors with stack traces and occurrence counts.
+BuddyReport turns recorded Lua errors into one copyable diagnostic report. It includes the client version, build and language, the installed addons and their enablement, and saved errors with stack traces and occurrence counts.
 
 ## Supported clients
 
@@ -14,11 +14,13 @@ The same ZIP works in both clients. BuddyReport runs on its own.
 ## Install and use
 
 1. Extract the release ZIP. Put the `BuddyReport` folder in `_retail_/Interface/AddOns/` or `_forever_/Interface/AddOns/`.
-2. Log in, reproduce the error, and enter `/br` in chat.
+2. Log in, reproduce the error, and click the BuddyReport minimap icon or enter `/br` in chat.
 3. Click **Create report**. With the report focused, use **Ctrl+A**, then **Ctrl+C**.
 4. Review the text and remove any private details before pasting it into a GitHub issue or a CurseForge comment. In a GitHub issue, paste it inside a code block to preserve stack formatting.
 
 **Clear errors** removes BuddyReport's records and empties the current report. WoW saves the records during a normal logout, exit, or UI reload. BuddyReport keeps up to 50 distinct message-and-stack combinations. New distinct errors replace the oldest stored entries. Very long messages and stacks are truncated.
+
+Drag the minimap icon with the left mouse button to move it along the edge. BuddyReport remembers its position. The icon turns red while there are saved errors and returns to its usual colors when you clear them.
 
 ## Capture and privacy
 

@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local MAX_ERRORS, MAX_MESSAGE, MAX_STACK = 50, 1024, 4096
 local MAX_COUNT = 2147483647
+local DEFAULT_MINIMAP_ANGLE = math.rad(-175)
 local errors, byMessage = {}, {}
 local ownHandler, handlingError, bugGrabberCallbackRegistered
 local isSecret = issecretvalue or function() return false end
@@ -64,7 +65,8 @@ local function storeError(message, stack, count)
 end
 
 local function loadSavedErrors()
-    local saved = type(BuddyReportDB) == "table" and BuddyReportDB.errors
+    local db = type(BuddyReportDB) == "table" and BuddyReportDB or {}
+    local saved = db.errors
     if type(saved) == "table" then
         for i = math.max(1, #saved - MAX_ERRORS + 1), #saved do
             local entry = saved[i]
@@ -73,7 +75,11 @@ local function loadSavedErrors()
             end
         end
     end
-    BuddyReportDB = {errors = errors}
+    local angle = db.minimapAngle
+    if type(angle) ~= "number" or not (angle >= -math.pi and angle <= math.pi) then
+        angle = DEFAULT_MINIMAP_ANGLE
+    end
+    BuddyReportDB = {errors = errors, minimapAngle = angle}
 end
 
 local function saveError(message, stack)
@@ -156,6 +162,7 @@ end
 function ns.ClearErrors()
     wipe(errors)
     wipe(byMessage)
+    if ns.RefreshCount then ns.RefreshCount() end
 end
 
 local function addonState(index, character)
@@ -217,7 +224,13 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
+events:RegisterEvent("PLAYER_LOGIN")
 events:SetScript("OnEvent", function(self, event, loadedAddon)
+    if event == "PLAYER_LOGIN" then
+        self:UnregisterEvent(event)
+        ns.CreateMinimapButton()
+        return
+    end
     if loadedAddon ~= addonName then return end
     self:UnregisterEvent(event)
     loadSavedErrors()

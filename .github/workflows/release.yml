@@ -48,17 +48,18 @@ jobs:
             [[ -n $ref && $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]]
           else
             [[ -z $ref && $(gh api "$repo/commits/main" --jq .sha) == "$GITHUB_SHA" ]]
+            notes=$(mktemp)
+            awk -v version="$version" '
+              $0 == "## " version { active=1; next }
+              active && /^## / { exit }
+              active { print }
+            ' CHANGELOG.md > "$notes"
+            grep -q '^- ' "$notes"
             if [[ $draft == true ]]; then
-              [[ $target == "$GITHUB_SHA" ]]
+              [[ $target == "$GITHUB_SHA" || $target == main ]]
+              gh release edit "$tag" --draft --target "$GITHUB_SHA" --notes-file "$notes"
               gh release upload "$tag" "dist/$zip" --clobber
             else
-              notes=$(mktemp)
-              awk -v version="$version" '
-                $0 == "## " version { active=1; next }
-                active && /^## / { exit }
-                active { print }
-              ' CHANGELOG.md > "$notes"
-              grep -q '^- ' "$notes"
               gh release create "$tag" "dist/$zip" --draft --target "$GITHUB_SHA" \
                 --title "BuddyReport $version" --notes-file "$notes"
             fi

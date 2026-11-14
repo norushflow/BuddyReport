@@ -1,0 +1,78 @@
+name: BuddyReport release
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: buddyreport-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update -qq --error-on=any
+          sudo apt-get install -y -qq luajit zip unzip
+
+      - name: Test and package
+        run: ./tools/release.sh
+
+      - name: Verify the uploaded ZIP and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version=$(awk '/^## Version:/ {print $3; exit}' BuddyReport.toc)
+          tag=v$version
+          zip=BuddyReport-$version.zip
+          repo=repos/$GH_REPO
+          ref=$(gh api "$repo/git/matching-refs/tags/$tag" \
+            --jq ".[] | select(.ref == \"refs/tags/$tag\") | .ref")
+          release=$(gh api --paginate "$repo/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$tag\") | [.draft, .target_commitish] | @tsv")
+          [[ $release != *$'\n'* ]]
+          IFS=$'\t' read -r draft target <<< "$release"
+
+          if [[ $draft == false ]]; then
+            [[ -n $ref && $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]]
+          else
+            [[ -z $ref && $(gh api "$repo/commits/main" --jq .sha) == "$GITHUB_SHA" ]]
+            if [[ $draft == true ]]; then
+              [[ $target == "$GITHUB_SHA" ]]
+              gh release upload "$tag" "dist/$zip" --clobber
+            else
+              notes=$(mktemp)
+              awk -v version="$version" '
+                $0 == "## " version { active=1; next }
+                active && /^## / { exit }
+                active { print }
+              ' CHANGELOG.md > "$notes"
+              grep -q '^- ' "$notes"
+              gh release create "$tag" "dist/$zip" --draft --target "$GITHUB_SHA" \
+                --title "BuddyReport $version" --notes-file "$notes"
+            fi
+          fi
+
+          verified=$(mktemp -d)
+          gh release download "$tag" --pattern "$zip" --dir "$verified"
+          cmp "dist/$zip" "$verified/$zip"
+          if [[ $draft != false ]]; then
+            ref=$(gh api "$repo/git/matching-refs/tags/$tag" \
+              --jq ".[] | select(.ref == \"refs/tags/$tag\") | .ref")
+            [[ -z $ref ]]
+            gh release edit "$tag" --draft=false
+          fi
+          [[ $(gh release view "$tag" --json isDraft --jq .isDraft) == false &&
+             $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]]
+          gh release view "$tag" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"

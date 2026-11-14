@@ -1,0 +1,11 @@
+## Interface: 120105, 16001
+## Title: BuddyReport
+## Notes: Copyable Lua error reports for World of Warcraft.
+## Notes-deDE: Kopierbare Lua-Fehlerberichte für World of Warcraft.
+## Author: norushflow
+## Version: 1.0.0
+## IconTexture: Interface\AddOns\BuddyReport\Media\Icon.tga
+## SavedVariables: BuddyReportDB
+
+Core.lua
+UI.lua

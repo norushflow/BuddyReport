@@ -87,6 +87,7 @@ local function loadAddon(options)
     function widget:GetFont() return "Fonts\\FRIZQT__.TTF" end
     function widget:GetName() return self.name end
     function widget:SetText(value)
+        self.textWrites = (self.textWrites or 0) + 1
         self.text = value
         if self.OnTextChanged then self:OnTextChanged(false) end
     end
@@ -341,4 +342,26 @@ contains(bug.CreateReport(), "Occurrences: 2")
 contains(bug.CreateReport(), "Stack:\nBugGrabber stack")
 bugEnv.BugGrabber.IsPaused = function() return true end
 assert(bug.GetCaptureMode() == "unavailable")
+for _, isForever in ipairs({false, true}) do
+    local api, client, raise, _, _, widgets = loadAddon({forever=isForever})
+    client.SlashCmdList.BUDDYREPORT()
+    local label
+    for _, widget in ipairs(widgets) do
+        if widget.text == (isForever and 'Unterschiedliche Fehler: 0' or 'Distinct errors: 0') then
+            label = widget
+        end
+    end
+    assert(label)
+    local writes = label.textWrites
+    for i=1,100 do raise('repeated error') end
+    assert(label.textWrites == writes+1, 'duplicate errors must not rewrite an unchanged count')
+    contains(api.CreateReport(), 'Occurrences: 100')
+    client.SlashCmdList.BUDDYREPORT() -- hide
+    raise('another error')
+    assert(label.textWrites == writes+1, 'hidden window must not update text')
+    client.SlashCmdList.BUDDYREPORT() -- reopen
+    assert(label.textWrites == writes+2 and label.text:sub(-1)=='2', 'reopen must show the latest count')
+    api.ClearErrors()
+    assert(label.textWrites == writes+3 and label.text:sub(-1)=='0', 'clearing must refresh immediately')
+end
 print("BuddyReport Lua tests passed (simulated Retail and Forever).")

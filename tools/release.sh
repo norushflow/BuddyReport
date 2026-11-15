@@ -17,6 +17,11 @@ version=$(awk '/^## Version:/ {print $3; exit}' "$toc")
 out="$output/$addon-$version.zip"
 [[ ! -e $out && ! -L $out ]] || { printf 'ZIP already exists: %s\n' "$out" >&2; exit 1; }
 
+awk -v version="$version" '
+    /^## / { active = ($0 == "## " version); if (active) sections++; next }
+    active && /^- [^[:space:]]/ { bullets++ }
+    END { exit !(sections == 1 && bullets > 0) }
+' CHANGELOG.md || { echo "Missing or ambiguous changelog for $version." >&2; exit 1; }
 ./tools/check.sh
 mkdir -p -- "$output"
 stage=$(mktemp -d -- "$output/.package.XXXXXXXX")
@@ -31,6 +36,10 @@ cp --parents -- "$toc" "${runtime[@]}" Media/Icon.tga LICENSE "$stage/$addon/"
     find "$addon" -type f -exec touch -t 198001010000.00 {} +
     find "$addon" -type f -print | sort | ZIPOPT= zip -q -X -9 addon.zip -@
     unzip -tq addon.zip >/dev/null
+    diff -q <(find "$addon" -type f -print | sort) <(unzip -Z -1 addon.zip | sort) >/dev/null ||
+        { echo 'ZIP contents differ from checked package files.' >&2; exit 1; }
+    unzip -p addon.zip "$addon/$toc" | cmp -s "$addon/$toc" - ||
+        { echo 'ZIP TOC differs from checked TOC.' >&2; exit 1; }
 )
 ln -T -- "$stage/addon.zip" "$out"
 printf 'Install ZIP: %s\n' "$out"

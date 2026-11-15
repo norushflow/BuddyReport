@@ -1,0 +1,17 @@
+package-as: BuddyReport
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+ignore:
+  - AGENTS.md
+  - CHANGELOG.md
+  - CURSEFORGE.md
+  - DEVELOPMENT.md
+  - README.md
+  - branding
+  - tests
+  - tools
+  - TEMP
+  - dist
+  - Media/Expressway.ttf
+  - Media/MORPHEUS.TTF

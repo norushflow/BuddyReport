@@ -8,8 +8,30 @@ command -v luajit >/dev/null || { echo 'LuaJIT is required.' >&2; exit 1; }
 toc=BuddyReport.toc
 grep -Fxq '## Interface: 120105, 16001' "$toc"
 grep -Fxq '## SavedVariables: BuddyReportDB' "$toc"
+grep -Fxq '## X-Curse-Project-ID: 1804151' "$toc"
+grep -Fxq '## X-Wago-ID: ZKbq0461' "$toc"
+[[ $(grep -Ec '^## (X-Curse-Project-ID|X-Wago-ID):' "$toc") == 2 ]] ||
+    { echo 'Duplicate project metadata in TOC.' >&2; exit 1; }
 grep -Fxq '## IconTexture: Interface\AddOns\BuddyReport\Media\Icon.tga' "$toc"
 grep -Eq '^## Version: [0-9]+\.[0-9]+\.[0-9]+$' "$toc"
+[[ $(grep -c '^## Version:' "$toc") == 1 && $(grep -c '^## Interface:' "$toc") == 1 ]] ||
+    { echo 'Duplicate version or interface metadata in TOC.' >&2; exit 1; }
+awk -v addon='BuddyReport' -v notes='CHANGELOG.md' \
+    -v required='AGENTS.md CHANGELOG.md CURSEFORGE.md DEVELOPMENT.md README.md branding tests tools TEMP dist Media/Expressway.ttf Media/MORPHEUS.TTF' '
+    BEGIN { split(required, paths); for (i in paths) allowed[paths[i]]=1 }
+    /^package-as:/ { if (NF != 2 || $2 != addon) exit 1; names++; next }
+    /^manual-changelog:[[:space:]]*$/ { manual++; next }
+    /^[[:space:]]+filename:/ { if (NF != 2 || $2 != notes) exit 1; filenames++; next }
+    /^[[:space:]]+markup-type:/ { if (NF != 2 || $2 != "markdown") exit 1; markup++; next }
+    /^ignore:[[:space:]]*$/ { ignore++; next }
+    /^[[:space:]]+- / && ignore { if (NF != 2 || !allowed[$2] || seen[$2]++) exit 1; next }
+    /^[[:space:]]*(#.*)?$/ { next }
+    { exit 1 }
+    END {
+        if (names != 1 || manual != 1 || filenames != 1 || markup != 1 || ignore != 1) exit 1
+        for (i in paths) if (!seen[paths[i]]) exit 1
+    }
+' .pkgmeta || { echo 'Invalid CurseForge package metadata.' >&2; exit 1; }
 if grep -Ei '^##[[:space:]]*(Dependencies|RequiredDeps|OptionalDeps|LoadOnDemand|SavedVariablesPerCharacter):' "$toc"; then
     echo 'Unexpected loading or dependency metadata.' >&2
     exit 1

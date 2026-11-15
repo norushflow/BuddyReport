@@ -1,6 +1,7 @@
 local addonName, ns = ...
 local de = GetLocale() == "deDE"
 local window, reportBox, errorCount, captureStatus, scroll
+local displayedErrorCount
 local minimapIcon, minimapBorder, minimapHasErrors
 local report = ""
 local fontPath
@@ -66,8 +67,9 @@ end
 
 function ns.RefreshCount()
     local count = ns.GetErrorCount()
-    if window and window:IsShown() then
+    if window and window:IsShown() and displayedErrorCount ~= count then
         errorCount:SetText((de and "Unterschiedliche Fehler: %d" or "Distinct errors: %d"):format(count))
+        displayedErrorCount = count
     end
     local hasErrors = count > 0
     if minimapIcon and minimapHasErrors ~= hasErrors then

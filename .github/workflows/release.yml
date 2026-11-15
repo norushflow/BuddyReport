@@ -33,6 +33,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          fail() { echo "::error::$*"; exit 1; }
           version=$(awk '/^## Version:/ {print $3; exit}' BuddyReport.toc)
           tag=v$version
           zip=BuddyReport-$version.zip
@@ -40,40 +41,57 @@ jobs:
           ref=$(gh api "$repo/git/matching-refs/tags/$tag" \
             --jq ".[] | select(.ref == \"refs/tags/$tag\") | .ref")
           release=$(gh api --paginate "$repo/releases?per_page=100" \
-            --jq ".[] | select(.tag_name == \"$tag\") | [.draft, .target_commitish] | @tsv")
-          [[ $release != *$'\n'* ]]
-          IFS=$'\t' read -r draft target <<< "$release"
+            --jq ".[] | select(.tag_name == \"$tag\") | [.id, .draft, .target_commitish] | @tsv")
+          [[ $release != *$'\n'* ]] || fail "Multiple releases for $tag."
+          IFS=$'\t' read -r release_id draft target <<< "$release"
+
+          work=$(mktemp -d)
+          trap 'rm -rf -- "$work"' EXIT
 
           if [[ $draft == false ]]; then
-            [[ -n $ref && $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]]
+            [[ -n $ref && $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]] ||
+              fail "$tag is already published for another commit."
           else
-            [[ -z $ref && $(gh api "$repo/commits/main" --jq .sha) == "$GITHUB_SHA" ]]
-            notes=$(mktemp)
+            [[ -z $ref && $(gh api "$repo/commits/main" --jq .sha) == "$GITHUB_SHA" ]] ||
+              fail "Tag exists or main changed since the workflow started."
+            notes="$work/notes"
             awk -v version="$version" '
               $0 == "## " version { active=1; next }
               active && /^## / { exit }
               active { print }
             ' CHANGELOG.md > "$notes"
-            grep -q '^- ' "$notes"
+            grep -q '^- ' "$notes" || fail "Release notes for $tag are missing."
             if [[ $draft == true ]]; then
-              [[ $target == "$GITHUB_SHA" || $target == main ]]
+              [[ $target == "$GITHUB_SHA" || $target == main ]] || fail "Draft targets another commit."
               gh release edit "$tag" --draft --target "$GITHUB_SHA" --notes-file "$notes"
-              gh release upload "$tag" "dist/$zip" --clobber
             else
-              gh release create "$tag" "dist/$zip" --draft --target "$GITHUB_SHA" \
+              gh release create "$tag" --draft --target "$GITHUB_SHA" \
                 --title "BuddyReport $version" --notes-file "$notes"
+              release_id=$(gh release view "$tag" --json databaseId --jq .databaseId)
             fi
+            asset=$(gh api --paginate "$repo/releases/$release_id/assets?per_page=100" \
+              --jq ".[] | select(.name == \"$zip\") | [.id, .state] | @tsv")
+            [[ $asset != *$'\n'* ]] || fail "Multiple assets named $zip."
+            IFS=$'\t' read -r asset_id asset_state <<< "$asset"
+            case $asset_state in
+              starter) gh api --method DELETE "$repo/releases/assets/$asset_id"; gh release upload "$tag" "dist/$zip" ;;
+              '') gh release upload "$tag" "dist/$zip" ;;
+              uploaded) ;;
+              *) fail "Incomplete draft asset $zip." ;;
+            esac
           fi
 
-          verified=$(mktemp -d)
+          verified="$work/verified"
+          mkdir -- "$verified"
           gh release download "$tag" --pattern "$zip" --dir "$verified"
-          cmp "dist/$zip" "$verified/$zip"
+          cmp -s "dist/$zip" "$verified/$zip" || fail "GitHub ZIP differs from the checked ZIP."
           if [[ $draft != false ]]; then
             ref=$(gh api "$repo/git/matching-refs/tags/$tag" \
               --jq ".[] | select(.ref == \"refs/tags/$tag\") | .ref")
-            [[ -z $ref ]]
+            [[ -z $ref ]] || fail "Tag was created concurrently."
             gh release edit "$tag" --draft=false
           fi
           [[ $(gh release view "$tag" --json isDraft --jq .isDraft) == false &&
-             $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]]
+             $(gh api "$repo/commits/$tag" --jq .sha) == "$GITHUB_SHA" ]] ||
+            fail "Published release or tag could not be verified."
           gh release view "$tag" --json url --jq .url >> "$GITHUB_STEP_SUMMARY"

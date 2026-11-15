@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Avoid redrawing the error counter when its value has not changed; error capture and occurrence counts are unchanged.
+- Add Wago project metadata and CurseForge package configuration, with stronger release package validation.
+
 ## 1.0.0
 
 - Added standalone Lua error capture for WoW Retail and WoW Forever.

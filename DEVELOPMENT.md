@@ -56,7 +56,7 @@ and runtime behavior are covered by the smoke test above.
 
 ## Build and publish
 
-Run `./tools/release.sh` to test and build `dist/BuddyReport-1.0.0.zip`.
+Run `./tools/release.sh` to test and build `dist/BuddyReport-1.0.1.zip`.
 The script uses the Buddy project ZIP layout and deterministic package format.
 Use the Fedora commands above to install a checked build for the smoke test.
 
@@ -66,3 +66,15 @@ The workflow builds the ZIP, downloads the draft's uploaded asset and compares
 its bytes before publishing. In CurseForge, use [CURSEFORGE.md](CURSEFORGE.md),
 `branding/BuddyReport-400.png` and the same verified ZIP. Assign both target
 clients to the file.
+
+The CurseForge webhook can also package a pushed tag using `.pkgmeta`; its
+Markdown changelog comes from `CHANGELOG.md`. Check published and pending files
+before any manual upload so the same version is not uploaded twice.
+
+For Wago, run `wago-release.yml` with the published tag. It defaults to a dry
+run. Only after checking the version is absent on Wago, set `dry_run=false`
+and `confirm_new=<tag>`; the `WAGO_API_TOKEN` repository secret and a
+`WAGO_PROJECT_ID` variable matching the TOC are required.
+A successful upload is recorded. After an uncertain outcome, check Wago first;
+only if the version is absent, use the displayed `recover_status_id` to retry.
+Verify the actual Wago publication separately.

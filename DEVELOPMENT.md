@@ -56,25 +56,11 @@ and runtime behavior are covered by the smoke test above.
 
 ## Build and publish
 
-Run `./tools/release.sh` to test and build `dist/BuddyReport-1.0.1.zip`.
-The script uses the Buddy project ZIP layout and deterministic package format.
-Use the Fedora commands above to install a checked build for the smoke test.
+Publish only on an explicit release request; failed checks block publication. Reuse a confirmed smoke test of the same code.
 
-Push the checked commit to `main` in the BuddyReport repository. Run
-`gh workflow run release.yml --ref main --repo norushflow/BuddyReport`.
-The workflow builds the ZIP, downloads the draft's uploaded asset and compares
-its bytes before publishing. In CurseForge, use [CURSEFORGE.md](CURSEFORGE.md),
-`branding/BuddyReport-400.png` and the same verified ZIP. Assign both target
-clients to the file.
+1. Check the remote, update the TOC version and English `CHANGELOG.md`, then commit and push to `main`.
+2. Run `gh workflow run release.yml --ref main --repo norushflow/BuddyReport`. It tests, builds and verifies the ZIP before publishing the release and tag. Confirm the commit and ZIP once. A local `./tools/release.sh` build also runs the checks; use it only when a local ZIP or smoke test is needed.
+3. CurseForge: check webhook-created files, including pending files. Only if absent and no upload is running, upload the same GitHub ZIP for **both clients**, using `CHANGELOG.md`. Report pending moderation without waiting. See `CURSEFORGE.md` only for setup or upload details.
+4. Wago: check the project and that the version is absent, then run `wago-release.yml` once with `tag=<tag>`, `dry_run=false`, `confirm_new=<tag>`. Report GitHub, CurseForge and Wago status separately.
 
-The CurseForge webhook can also package a pushed tag using `.pkgmeta`; its
-Markdown changelog comes from `CHANGELOG.md`. Check published and pending files
-before any manual upload so the same version is not uploaded twice.
-
-For Wago, run `wago-release.yml` with the published tag. It defaults to a dry
-run. Only after checking the version is absent on Wago, set `dry_run=false`
-and `confirm_new=<tag>`; the `WAGO_API_TOKEN` repository secret and a
-`WAGO_PROJECT_ID` variable matching the TOC are required.
-A successful upload is recorded. After an uncertain outcome, check Wago first;
-only if the version is absent, use the displayed `recover_status_id` to retry.
-Verify the actual Wago publication separately.
+Wago requires secret `WAGO_API_TOKEN` and variable `WAGO_PROJECT_ID` matching the TOC. Dry run remains the default; an unchanged, verified setup needs no extra dry run. For an uncertain upload, check the platform first; use `recover_status_id` only if the version is confirmed absent. Never retry blindly or expose secrets.

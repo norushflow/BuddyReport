@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- Update development and release documentation. Error capture behavior is unchanged.
+
 ## 1.0.2
 
 - Record blocked and forbidden interface actions in diagnostic reports, including the addon and requested function when provided by WoW.

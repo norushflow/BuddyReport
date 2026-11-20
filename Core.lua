@@ -209,8 +209,8 @@ function ns.CreateReport()
     }
     for _, addon in ipairs(installedAddons()) do lines[#lines + 1] = addon end
     lines[#lines + 1] = ""
-    lines[#lines + 1] = ("Saved Lua errors (%d distinct)"):format(#errors)
-    if #errors == 0 then lines[#lines + 1] = "No Lua errors recorded." end
+    lines[#lines + 1] = ("Saved errors (%d distinct)"):format(#errors)
+    if #errors == 0 then lines[#lines + 1] = "No errors recorded." end
     for i = #errors, 1, -1 do
         local entry = errors[i]
         lines[#lines + 1] = ""
@@ -225,15 +225,23 @@ end
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
 events:RegisterEvent("PLAYER_LOGIN")
-events:SetScript("OnEvent", function(self, event, loadedAddon)
+events:SetScript("OnEvent", function(self, event, addon, action)
     if event == "PLAYER_LOGIN" then
         self:UnregisterEvent(event)
         ns.CreateMinimapButton()
         return
     end
-    if loadedAddon ~= addonName then return end
+    if event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
+        local source = readableString(addon) and addon or "(unknown addon)"
+        local operation = readableString(action) and action or "(unknown action)"
+        saveError(("[%s] %s: %s"):format(event, source, operation))
+        return
+    end
+    if addon ~= addonName then return end
     self:UnregisterEvent(event)
     loadSavedErrors()
+    self:RegisterEvent("ADDON_ACTION_BLOCKED")
+    self:RegisterEvent("ADDON_ACTION_FORBIDDEN")
     installClientHandler()
     connectBugGrabber()
 end)

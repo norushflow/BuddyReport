@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- Record blocked and forbidden interface actions in diagnostic reports, including the addon and requested function when provided by WoW.
+- Count repeated blocks and capture them independently of the Lua error handler and Blizzard error popups.
+
 ## 1.0.1
 
 - Avoid redrawing the error counter when its value has not changed; error capture and occurrence counts are unchanged.

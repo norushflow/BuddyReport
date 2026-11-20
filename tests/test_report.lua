@@ -171,7 +171,7 @@ local function loadAddon(options)
         return xpcall(raise, handler)
     end
     local function replaceHandler() handler = clientHandler end
-    return ns, env, fire, callbacks, forwarded, frames, secret, replaceHandler
+    return ns, env, fire, callbacks, forwarded, frames, secret, replaceHandler, dispatch
 end
 
 local function contains(text, part)
@@ -197,7 +197,7 @@ contains(cleanReport, "World of Warcraft Retail 12.1.5 (build 70783, interface 1
 contains(cleanReport, "Client locale: enUS")
 contains(cleanReport, "BuddyReport version: 1.0.0")
 contains(cleanReport, "Blizzard Lua error popups: off")
-contains(cleanReport, "No Lua errors recorded.")
+contains(cleanReport, "No errors recorded.")
 contains(cleanReport, "AEnabled | 2.5 | enabled\nBuddyReport | 1.0.0 | enabled\nZDisabled | unknown | disabled")
 assert(not cleanReport:find("ABCDEF", 1, true))
 
@@ -323,7 +323,7 @@ local _, square = loadAddon({saved = {minimapAngle = math.pi / 4}, minimapMask =
 assert(math.abs(square.BuddyReportMinimapButton.point[4] - 70) < .0001)
 assert(math.abs(square.BuddyReportMinimapButton.point[5] - 70) < .0001)
 
-local bug, bugEnv, _, bugCallbacks = loadAddon({forever = true, blocked = true})
+local bug, bugEnv, _, bugCallbacks, _, _, hiddenValue, _, dispatch = loadAddon({forever = true, blocked = true})
 assert(bug.GetCaptureMode() == "unavailable")
 bugEnv.BugGrabber = {
     GetErrorByID = function(_, id)
@@ -342,6 +342,14 @@ contains(bug.CreateReport(), "Occurrences: 2")
 contains(bug.CreateReport(), "Stack:\nBugGrabber stack")
 bugEnv.BugGrabber.IsPaused = function() return true end
 assert(bug.GetCaptureMode() == "unavailable")
+dispatch("ADDON_ACTION_BLOCKED", "AzerothBuddyUI", "Reload()")
+dispatch("ADDON_ACTION_BLOCKED", "AzerothBuddyUI", "Reload()")
+dispatch("ADDON_ACTION_FORBIDDEN", hiddenValue, nil)
+assert(bug.GetErrorCount() == 3)
+local blockedReport = bug.CreateReport()
+contains(blockedReport, "[ADDON_ACTION_BLOCKED] AzerothBuddyUI: Reload()")
+contains(blockedReport, "[ADDON_ACTION_FORBIDDEN] (unknown addon): (unknown action)")
+assert(bugEnv.BuddyReportDB.errors[2].count == 2)
 for _, isForever in ipairs({false, true}) do
     local api, client, raise, _, _, widgets = loadAddon({forever=isForever})
     client.SlashCmdList.BUDDYREPORT()

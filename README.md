@@ -1,6 +1,10 @@
 # BuddyReport
 
+<p align="center"><img src="branding/BuddyReport-400.png" width="144" height="144" alt="BuddyReport icon"></p>
+
 BuddyReport turns recorded Lua errors into one copyable diagnostic report. It includes the client version, build and language, the installed addons and their enablement, and saved errors with stack traces and occurrence counts. It also records blocked and forbidden interface actions, with the addon and function when WoW supplies them.
+
+[Wago](https://addons.wago.io/addons/buddyreport) · [CurseForge](https://www.curseforge.com/wow/addons/buddybugreport-lua-error-reports) · [GitHub Releases](https://github.com/norushflow/BuddyReport/releases)
 
 ## Supported clients
 

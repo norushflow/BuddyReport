@@ -14,7 +14,7 @@ BuddyBugReport gives you one place to collect the details an addon author needs 
 
 Drag the minimap icon to move it along the edge. It remembers its position and turns red while there are saved errors.
 
-Each report includes the WoW edition, version, build and language, the installed addons with their versions and enablement, and up to 50 distinct Lua errors with stack traces and occurrence counts. The error history is stored locally and can be cleared in the same window.
+Each report includes the WoW edition, version, build and language, the installed addons with their versions and enablement, and up to 50 distinct Lua errors with stack traces and occurrence counts. The report also counts blocked and forbidden interface actions and names the addon and function when WoW supplies them. The error history is stored locally and can be cleared in the same window.
 
 Extract the ZIP so the `BuddyReport` folder sits inside your client's `Interface/AddOns` folder. The same package supports **WoW Retail 12.1.5** and **WoW Forever 1.60.1**. BuddyReport runs independently and leaves your Blizzard error popup setting as configured.
 

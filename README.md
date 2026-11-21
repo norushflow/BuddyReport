@@ -1,6 +1,6 @@
 # BuddyReport
 
-BuddyReport turns recorded Lua errors into one copyable diagnostic report. It includes the client version, build and language, the installed addons and their enablement, and saved errors with stack traces and occurrence counts.
+BuddyReport turns recorded Lua errors into one copyable diagnostic report. It includes the client version, build and language, the installed addons and their enablement, and saved errors with stack traces and occurrence counts. It also records blocked and forbidden interface actions, with the addon and function when WoW supplies them.
 
 ## Supported clients
 

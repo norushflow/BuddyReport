@@ -244,4 +244,11 @@ events:SetScript("OnEvent", function(self, event, addon, action)
     self:RegisterEvent("ADDON_ACTION_FORBIDDEN")
     installClientHandler()
     connectBugGrabber()
+    if EventRegistry and type(EventRegistry.RegisterCallback) == "function" then
+        pcall(EventRegistry.RegisterCallback, EventRegistry, "BuddyReport.HandledError", function(_, source, message, stack)
+            if readableString(source) and readableString(message) and message ~= "" then
+                pcall(saveError, "[Handled Lua error] " .. source .. ": " .. message, stack)
+            end
+        end, ns)
+    end
 end)

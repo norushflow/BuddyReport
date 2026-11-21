@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4
+
+- Capture handled Lua errors explicitly reported by cooperating addons, including AzerothBuddyUI layout import failures.
+- Save these errors with their source and stack trace using the existing redaction, counting, and report history.
+
 ## 1.0.3
 
 - Update development and release documentation. Error capture behavior is unchanged.

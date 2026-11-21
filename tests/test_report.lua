@@ -373,3 +373,10 @@ for _, isForever in ipairs({false, true}) do
     assert(label.textWrites == writes+3 and label.text:sub(-1)=='0', 'clearing must refresh immediately')
 end
 print("BuddyReport Lua tests passed (simulated Retail and Forever).")
+
+local handled, handledEnv, _, handledCallbacks = loadAddon({})
+handledCallbacks["BuddyReport.HandledError"]("AzerothBuddyUI", "layout import failed", "stack /home/private-user/WoW")
+assert(handled.GetErrorCount() == 1)
+local entry = handledEnv.BuddyReportDB.errors[1]
+contains(entry.message, "AzerothBuddyUI: layout import failed")
+contains(entry.stack, "/home/[redacted]/WoW")
